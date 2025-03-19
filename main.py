@@ -7,173 +7,144 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, WebDriverException, NoSuchElementException
-import traceback
+from selenium.common.exceptions import TimeoutException, WebDriverException
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Configure detailed logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 def setup_browser():
-    """Set up Chrome browser with optimal settings"""
+    """Set up Chrome browser with minimal settings"""
     logger.info("Setting up Chrome WebDriver...")
     chrome_options = Options()
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
     chrome_options.add_argument('--disable-gpu')
     chrome_options.add_argument('--window-size=1920,1080')
-    chrome_options.add_argument('--log-level=3')
-    chrome_options.add_experimental_option('excludeSwitches', ['enable-automation'])
-    chrome_options.add_experimental_option('useAutomationExtension', False)
+    chrome_options.add_argument('--disable-notifications')
+    chrome_options.add_argument('--disable-blink-features=AutomationControlled')
 
     try:
         logger.info("Initializing Chrome WebDriver...")
         driver = webdriver.Chrome(options=chrome_options)
         driver.set_window_size(1920, 1080)
-        driver.set_page_load_timeout(45)  # Increased timeout for page loads
-        driver.set_script_timeout(45)  # Increased timeout for scripts
+        driver.implicitly_wait(10)  # Add implicit wait
+
+        # Basic anti-bot measures
+        driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+            'source': 'Object.defineProperty(navigator, "webdriver", {get: () => undefined})'
+        })
+
         logger.info("Chrome WebDriver initialized successfully")
         return driver
     except WebDriverException as e:
         logger.error(f"WebDriver initialization error: {str(e)}")
-        logger.debug(traceback.format_exc())
-        raise Exception(f"Failed to initialize WebDriver: {str(e)}")
+        raise
 
-def take_screenshot(driver, name):
-    """Take a screenshot and save it to the screenshots directory"""
-    try:
-        # Create screenshots directory if it doesn't exist
-        os.makedirs('screenshots', exist_ok=True)
-        logger.info("Screenshots directory checked/created")
+def verify_credentials():
+    """Verify that required credentials are available"""
+    username = os.getenv('INFINITI_USERNAME')
+    password = os.getenv('INFINITI_PASSWORD')
 
-        # Generate filename with timestamp
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f'screenshots/{timestamp}_{name}.png'
+    if not username or not password:
+        raise ValueError("Missing credentials - please check INFINITI_USERNAME and INFINITI_PASSWORD environment variables")
 
-        # Take screenshot
-        driver.save_screenshot(filename)
-
-        # Verify screenshot was saved
-        if os.path.exists(filename):
-            logger.info(f"Screenshot saved successfully: {filename}")
-        else:
-            logger.error(f"Screenshot file not found after saving: {filename}")
-
-    except Exception as e:
-        logger.error(f"Failed to take screenshot: {str(e)}")
-        logger.debug(traceback.format_exc())
+    return username, password
 
 def wait_for_element(driver, by, value, timeout=30):
     """Wait for element to be present and visible"""
     try:
+        logger.info(f"Waiting for element: {value}")
         element = WebDriverWait(driver, timeout).until(
             EC.presence_of_element_located((by, value))
         )
-        logger.info(f"Element found: {value}")
+        WebDriverWait(driver, 5).until(
+            EC.visibility_of(element)
+        )
+        logger.info(f"Element found and visible: {value}")
         return element
-    except TimeoutException:
-        logger.error(f"Element not found after {timeout} seconds: {value}")
-        # Log page source for debugging
-        logger.debug("Current page source:")
-        logger.debug(driver.page_source)
+    except TimeoutException as e:
+        logger.error(f"Element not found or not visible: {value}")
+        logger.error(f"Current URL: {driver.current_url}")
+        logger.error(f"Page title: {driver.title}")
         raise
+
+def take_verification_screenshot(driver):
+    """Take a single verification screenshot"""
+    try:
+        os.makedirs('screenshots', exist_ok=True)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'screenshots/verification_{timestamp}.png'
+        driver.save_screenshot(filename)
+        logger.info(f"Verification screenshot saved: {filename}")
+    except Exception as e:
+        logger.error(f"Failed to take screenshot: {str(e)}")
 
 def main():
     driver = None
-    start_time = None
     try:
-        # Get credentials
-        username = os.getenv('INFINITI_USERNAME')
-        password = os.getenv('INFINITI_PASSWORD')
+        # Verify credentials first
+        username, password = verify_credentials()
+        logger.info("Credentials verified")
 
-        if not username or not password:
-            logger.error("Missing credentials")
-            return
-
-        logger.info("Starting browser...")
+        # Initialize browser
         driver = setup_browser()
 
+        # Navigate to login page
         logger.info("Navigating to login page...")
         driver.get("https://dash.infiniti.fun/earn/afk")
 
-        logger.info("Waiting for page load...")
+        # Wait for page load
         WebDriverWait(driver, 30).until(
             lambda d: d.execute_script('return document.readyState') == 'complete'
         )
+        logger.info(f"Page loaded - Title: {driver.title}")
 
-        # Take screenshot before login
-        take_screenshot(driver, 'before_login')
+        # Login process
+        logger.info("Starting login process...")
+        username_field = wait_for_element(driver, By.NAME, "username")
+        username_field.clear()
+        username_field.send_keys(username)
+        logger.info("Username entered")
 
-        logger.info("Looking for login form...")
-        try:
-            username_field = wait_for_element(driver, By.NAME, "username")
-            password_field = wait_for_element(driver, By.NAME, "password")
+        password_field = wait_for_element(driver, By.NAME, "password")
+        password_field.clear()
+        password_field.send_keys(password)
+        logger.info("Password entered")
 
-            logger.info("Entering credentials...")
-            username_field.clear()
-            username_field.send_keys(username)
-            password_field.clear()
-            password_field.send_keys(password)
+        submit_button = wait_for_element(driver, By.XPATH, "//button[@type='submit']")
+        submit_button.click()
+        logger.info("Login form submitted")
 
-            logger.info("Submitting login...")
-            submit_button = wait_for_element(driver, By.XPATH, "//button[@type='submit']")
-            submit_button.click()
+        # Wait for dashboard
+        logger.info("Waiting for dashboard...")
+        dashboard = wait_for_element(driver, By.XPATH, "//div[contains(@class, 'dashboard')]")
 
-            logger.info("Waiting for dashboard...")
-            wait_for_element(driver, By.XPATH, "//div[contains(@class, 'dashboard')]")
+        if dashboard:
+            logger.info("Successfully logged in")
+            # Take single verification screenshot
+            take_verification_screenshot(driver)
 
-            # Take screenshot after successful login
-            take_screenshot(driver, 'after_login')
-
-            logger.info("Successfully logged in, maintaining session...")
+            # Track session duration
             start_time = time.time()
-
-            # Keep session alive without refreshing
-            check_interval = 60  # Check every minute
             while True:
-                try:
-                    # Simple check without refreshing
-                    driver.execute_script("return document.readyState")
+                current_time = time.time()
+                duration = int(current_time - start_time)
+                hours = duration // 3600
+                minutes = (duration % 3600) // 60
+                seconds = duration % 60
 
-                    # Calculate and log session duration
-                    current_time = time.time()
-                    duration = int(current_time - start_time)
-                    hours = duration // 3600
-                    minutes = (duration % 3600) // 60
-                    seconds = duration % 60
+                logger.info(f"Session active for {hours:02d}:{minutes:02d}:{seconds:02d}")
+                time.sleep(60)
 
-                    logger.info(f"Session is active - Duration: {hours:02d}:{minutes:02d}:{seconds:02d}")
-
-                    # Additional check for dashboard presence
-                    wait_for_element(driver, By.XPATH, "//div[contains(@class, 'dashboard')]")
-
-                    time.sleep(check_interval)  # Wait before next check
-
-                except WebDriverException as e:
-                    logger.error(f"WebDriver error during session check: {str(e)}")
-                    logger.debug(traceback.format_exc())
-                    break
-                except Exception as e:
-                    logger.error(f"Unexpected error during session check: {str(e)}")
-                    logger.debug(traceback.format_exc())
-                    break
-
-        except TimeoutException as e:
-            logger.error(f"Timeout waiting for login form: {str(e)}")
-            logger.debug(traceback.format_exc())
-        except WebDriverException as e:
-            logger.error(f"WebDriver error during login: {str(e)}")
-            logger.debug(traceback.format_exc())
-        except Exception as e:
-            logger.error(f"Unexpected error during login: {str(e)}")
-            logger.debug(traceback.format_exc())
-
+    except Exception as e:
+        logger.error(f"Error: {str(e)}")
     finally:
         if driver:
             try:
-                if start_time:
-                    duration = int(time.time() - start_time)
-                    logger.info(f"Total session duration: {duration // 3600:02d}:{(duration % 3600) // 60:02d}:{duration % 60:02d}")
                 driver.quit()
                 logger.info("Browser closed successfully")
             except:
