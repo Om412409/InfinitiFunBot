@@ -32,10 +32,13 @@ def setup_browser():
         logger.info("Initializing Chrome WebDriver...")
         driver = webdriver.Chrome(options=chrome_options)
         driver.set_window_size(1920, 1080)
+        driver.set_page_load_timeout(45)  # Increased timeout for page loads
+        driver.set_script_timeout(45)  # Increased timeout for scripts
         logger.info("Chrome WebDriver initialized successfully")
         return driver
     except WebDriverException as e:
         logger.error(f"WebDriver initialization error: {str(e)}")
+        logger.debug(traceback.format_exc())
         raise Exception(f"Failed to initialize WebDriver: {str(e)}")
 
 def main():
@@ -70,15 +73,21 @@ def main():
         )
         logger.info("Username field found")
 
-        password_field = driver.find_element(By.NAME, "password")
+        password_field = WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located((By.NAME, "password"))
+        )
         logger.info("Password field found")
 
         logger.info("Entering credentials...")
+        username_field.clear()
         username_field.send_keys(username)
+        password_field.clear()
         password_field.send_keys(password)
 
         logger.info("Submitting login...")
-        submit_button = driver.find_element(By.XPATH, "//button[@type='submit']")
+        submit_button = WebDriverWait(driver, 30).until(
+            EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']"))
+        )
         submit_button.click()
 
         logger.info("Waiting for dashboard...")
@@ -89,14 +98,21 @@ def main():
         logger.info("Successfully logged in, maintaining session...")
 
         # Keep session alive without refreshing
+        check_interval = 60  # Check every minute
         while True:
             try:
                 # Simple check without refreshing
                 driver.execute_script("return document.readyState")
                 logger.info("Session is active")
-                time.sleep(300)  # Check every 5 minutes
+                time.sleep(check_interval)  # Wait before next check
+
+            except WebDriverException as e:
+                logger.error(f"WebDriver error during session check: {str(e)}")
+                logger.debug(traceback.format_exc())
+                break
             except Exception as e:
-                logger.error(f"Session check failed: {e}")
+                logger.error(f"Unexpected error during session check: {str(e)}")
+                logger.debug(traceback.format_exc())
                 break
 
     except TimeoutException as e:
