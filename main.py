@@ -64,7 +64,7 @@ def take_screenshot(driver, name):
         logger.debug(traceback.format_exc())
 
 def wait_for_element(driver, by, value, timeout=30):
-    """Wait for element to be present and return it"""
+    """Wait for element to be present and visible"""
     try:
         element = WebDriverWait(driver, timeout).until(
             EC.presence_of_element_located((by, value))
@@ -73,6 +73,9 @@ def wait_for_element(driver, by, value, timeout=30):
         return element
     except TimeoutException:
         logger.error(f"Element not found after {timeout} seconds: {value}")
+        # Log page source for debugging
+        logger.debug("Current page source:")
+        logger.debug(driver.page_source)
         raise
 
 def main():
