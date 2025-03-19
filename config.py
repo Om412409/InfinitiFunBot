@@ -8,9 +8,9 @@ PASSWORD = os.getenv('INFINITI_PASSWORD', '')
 LOGIN_URL = "https://dash.infiniti.fun/earn/afk"
 
 # WebDriver Settings
-IMPLICIT_WAIT = 10
-PAGE_LOAD_TIMEOUT = 30
-SCRIPT_TIMEOUT = 30
+IMPLICIT_WAIT = 30  # Increased timeout for element waits
+PAGE_LOAD_TIMEOUT = 45  # Increased timeout for page loads
+SCRIPT_TIMEOUT = 45  # Increased timeout for scripts
 
 # Session Settings
-CHECK_INTERVAL = 60  # Check session status every 60 seconds
+CHECK_INTERVAL = 300  # Check session status every 5 minutes to reduce server load
