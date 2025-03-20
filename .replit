@@ -29,5 +29,14 @@ task = "packager.installForAll"
 task = "shell.exec"
 args = "python main.py"
 
+[[workflows.workflow]]
+name = "Run Bot"
+author = 40661313
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py"
+
 [deployment]
 run = ["sh", "-c", "python main.py"]
