@@ -217,11 +217,16 @@ def verify_session(driver):
         logger.debug(f"Current URL: {driver.current_url}")
         logger.debug(f"Page title: {driver.title}")
 
-        # Check dashboard visibility
-        dashboard = driver.find_element(By.CSS_SELECTOR, ".dashboard")
+        # Verify we're on the correct page
+        if '/earn/afk' not in driver.current_url:
+            logger.error("Not on AFK earning page")
+            return False
+
+        # Check if any main content is visible
+        dashboard = driver.find_element(By.TAG_NAME, "body")
         if not dashboard.is_displayed():
-            logger.error("Dashboard element found but not visible")
-            logger.debug(f"Dashboard HTML: {dashboard.get_attribute('outerHTML')}")
+            logger.error("Main content not visible")
+            logger.debug(f"Body HTML: {dashboard.get_attribute('outerHTML')}")
             return False
 
         # Check for session error messages
