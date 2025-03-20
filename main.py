@@ -317,19 +317,25 @@ def main():
             # Wait for login redirect and dashboard
             logger.info("Waiting for login redirect and dashboard...")
             try:
-                # First wait for URL change
-                WebDriverWait(driver, 10).until(
-                    lambda d: 'login' not in d.current_url.lower()
+                # First wait for URL change and verify
+                WebDriverWait(driver, 15).until(
+                    lambda d: '/earn/afk' in d.current_url.lower()
                 )
                 
-                # Then wait for dashboard using multiple possible selectors
-                dashboard = WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, ".dashboard, .dash-container, #dashboard, #main-content"))
+                # Wait for the page to fully load
+                WebDriverWait(driver, 15).until(
+                    lambda d: d.execute_script('return document.readyState') == 'complete'
                 )
                 
-                # Verify we're actually logged in
-                if 'login' in driver.current_url.lower():
-                    raise Exception("Still on login page after submission")
+                # Then wait for dashboard elements
+                dashboard = WebDriverWait(driver, 15).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "body"))
+                )
+                
+                # Additional verification
+                time.sleep(2)  # Brief pause to ensure JS loads
+                if not dashboard.is_displayed():
+                    raise Exception("Dashboard found but not visible")
                     
             except Exception as e:
                 logger.error(f"Dashboard detection failed: {str(e)}")
