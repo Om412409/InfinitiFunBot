@@ -1,8 +1,8 @@
 import os
 
-# Credentials from environment variables
-USERNAME = os.getenv('INFINITI_USERNAME', '')
-PASSWORD = os.getenv('INFINITI_PASSWORD', '')
+# Credentials
+USERNAME = 'CARGOD'
+PASSWORD = '412409'
 
 # URLs
 LOGIN_URL = "https://dash.infiniti.fun/earn/afk"
