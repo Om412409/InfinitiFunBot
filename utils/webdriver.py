@@ -14,10 +14,24 @@ logger = logging.getLogger(__name__)
 def find_chrome_binary():
     """Find Chrome binary in the Nix store"""
     try:
-        # Try to find Chrome binary using which
+        # Check common Nix store locations
+        nix_paths = [
+            '/nix/store/*/bin/chromium',
+            '/usr/bin/chromium',
+            '/usr/bin/chromium-browser'
+        ]
+        
+        for path_pattern in nix_paths:
+            import glob
+            matches = glob.glob(path_pattern)
+            if matches:
+                return matches[0]
+                
+        # Fallback to which
         result = subprocess.run(['which', 'chromium'], capture_output=True, text=True)
         if result.returncode == 0:
             return result.stdout.strip()
+            
         return None
     except Exception as e:
         logger.error(f"Error finding Chrome binary: {str(e)}")
