@@ -8,9 +8,9 @@ PASSWORD = '412409'
 LOGIN_URL = "https://dash.infiniti.fun/earn/afk"
 
 # WebDriver Settings
-IMPLICIT_WAIT = 30  # Seconds for implicit waits
-PAGE_LOAD_TIMEOUT = 45  # Seconds for page loads
-SCRIPT_TIMEOUT = 45  # Seconds for script execution
+IMPLICIT_WAIT = 10  # Seconds for implicit waits
+PAGE_LOAD_TIMEOUT = 30  # Seconds for page loads
+SCRIPT_TIMEOUT = 30  # Seconds for script execution
 NETWORK_TIMEOUT = 30  # Seconds for network operations
 
 # Session Settings

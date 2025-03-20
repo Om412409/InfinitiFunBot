@@ -314,11 +314,31 @@ def main():
                 take_screenshot(driver, "error_login")
                 raise Exception(f"Login failed: {error_text}")
 
-            # Wait for dashboard
-            logger.info("Waiting for dashboard...")
-            dashboard = wait_for_element(driver, By.CSS_SELECTOR, ".dashboard")
+            # Wait for login redirect and dashboard
+            logger.info("Waiting for login redirect and dashboard...")
+            try:
+                # First wait for URL change
+                WebDriverWait(driver, 10).until(
+                    lambda d: 'login' not in d.current_url.lower()
+                )
+                
+                # Then wait for dashboard using multiple possible selectors
+                dashboard = WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, ".dashboard, .dash-container, #dashboard, #main-content"))
+                )
+                
+                # Verify we're actually logged in
+                if 'login' in driver.current_url.lower():
+                    raise Exception("Still on login page after submission")
+                    
+            except Exception as e:
+                logger.error(f"Dashboard detection failed: {str(e)}")
+                logger.debug(f"Current URL: {driver.current_url}")
+                logger.debug(f"Page source: {driver.page_source[:1000]}")
+                take_screenshot(driver, "error_dashboard")
+                raise
 
-            if dashboard:
+            if dashboard.is_displayed():
                 logger.info("Successfully logged in")
                 take_screenshot(driver, "success")
 
